@@ -43,12 +43,6 @@ CREATE TABLE SINHVIEN (
 	SODT VARCHAR(12),
 	DIACHI NVARCHAR(100)
 );
---Bảng Phiếu Mượn
-CREATE TABLE PHIEUMUON (
-    MAPM SMALLINT PRIMARY KEY, 
-    NGAYMUON SMALLDATETIME,
-	NGAYTRADUKIEN SMALLDATETIME
-);
 --Bảng SACH_TACGIA
 CREATE TABLE SACH_TACGIA (
     MSSACH SMALLINT,
@@ -91,17 +85,23 @@ CREATE TABLE SINHVIEN_SACH (
     FOREIGN KEY (MASV) REFERENCES SINHVIEN(MASV),
     FOREIGN KEY (MSSACH) REFERENCES SACH(MSSACH)
 );
---SINHVIEN_PHIEUMUON
-CREATE TABLE SINHVIEN_PHIEUMUON (
-    MASV SMALLINT,
-    MAPM SMALLINT,
-    FOREIGN KEY (MASV) REFERENCES SINHVIEN(MASV),
-    FOREIGN KEY (MAPM) REFERENCES PHIEUMUON(MAPM)
-); 
+--SV_PM_SACH
+CREATE TABLE SV_PM_SACH (
+    MSSV SMALLINT,
+    MSPM INT,
+    MSSACH SMALLINT,
+    NGAYMUON SMALLDATETIME,
+    NGAYTRADUKIEN SMALLDATETIME,
+    FOREIGN KEY (MSSACH) REFERENCES SACH(MSSACH),
+    FOREIGN KEY (MSSV) REFERENCES SINHVIEN(MASV),
+	
+);
+UPDATE SV_PM_SACH
+SET MSPM = MSSV * 1000 + MSSACH;
 --Nhập dữ liệu bảng SACH
 INSERT INTO SACH (MSSACH, TENSACH, NAMXB, SL) VALUES
 ('11000', 'Code Complete 2', 2000, 5),
-('11001', 'The Mythical Man-Month', 2001, 8),
+('11001', 'The Mythical Man-Month', 2001, 8);
 ('11002', 'Don’t Make Me Think', 2002, 3),
 ('11003', 'Peopleware', 2003, 6),
 ('11004', 'The Design of Everyday Things', 2004, 2),
@@ -163,16 +163,6 @@ INSERT INTO SINHVIEN (MASV, TENSV, LOP, SODT, DIACHI) VALUES
 INSERT INTO KHO (MAKHO, TENKHO, SUCCHUA) VALUES
 (17000, N'Kho số 1', 300),
 (17001, N'Kho số 2', 300);
-
---Nhập liệu bảng PHIEUMUON
-INSERT INTO PHIEUMUON (MAPM, NGAYMUON, NGAYTRADUKIEN) VALUES
-(18000, '2024-10-01', '2024-10-23'),
-(18001, '2024-10-02', '2024-10-24'),
-(18002, '2024-10-03', '2024-10-25'),
-(18003, '2024-10-04', '2024-10-26'),
-(18004, '2024-10-05', '2024-10-27'),
-(18005, '2024-10-06', '2024-10-28'),
-(18006, '2024-10-07', '2024-10-29');
 
 --Nhập liệu bảng SACH_TACGIA
 INSERT INTO SACH_TACGIA (MSSACH, MATG) VALUES
@@ -283,13 +273,23 @@ INSERT INTO SINHVIEN_SACH (MASV, MSSACH) VALUES
 (16004, 11014);
 
 --Nhập liệu bảng PHIEUMUON_SINHVIEN
-INSERT INTO SINHVIEN_PHIEUMUON (MASV, MAPM) VALUES
-(16000, 18000),
-(16001, 18001),
-(16002, 18002),
-(16003, 18003),
-(16004, 18004),
-(16000, 18005);
+INSERT INTO SV_PM_SACH (MSSV, MSSACH, MSPM, NGAYMUON, NGAYTRADUKIEN)
+VALUES
+(16000, 11000, 1600011000, '2024-03-15', '2024-04-15'),
+(16000, 11001, 1600011001, '2024-03-16', '2024-04-16'),
+(16000, 11002, 1600011002, '2024-03-17', '2024-04-17'),
+(16001, 11003, 1600111003, '2024-03-18', '2024-04-18'),
+(16001, 11004, 1600111004, '2024-03-19', '2024-04-19'),
+(16002, 11005, 1600211005, '2024-03-20', '2024-04-20'),
+(16002, 11006, 1600211006, '2024-03-21', '2024-04-21'),
+(16002, 11007, 1600211007, '2024-03-22', '2024-04-22'),
+(16003, 11008, 1600311008, '2024-03-23', '2024-04-23'),
+(16003, 11009, 1600311009, '2024-03-24', '2024-04-24'),
+(16004, 11010, 1600411010, '2024-03-25', '2024-04-25'),
+(16004, 11011, 1600411011, '2024-03-26', '2024-04-26'),
+(16004, 11012, 1600411012, '2024-03-27', '2024-04-27'),
+(16004, 11013, 1600411013, '2024-03-28', '2024-04-28'),
+(16004, 11014, 1600411014, '2024-03-29', '2024-04-29');
 
 --Tạo các câu lệnh truy vấn 
 --Truy vấn để lấy thông tin về tất cả các sinh viên và số sách mà họ đã mượn:
@@ -338,8 +338,16 @@ CREATE PROCEDURE ThemSach
     @SL TINYINT
 AS
 BEGIN
-    INSERT INTO SACH (TENSACH, NAMXB, SL) VALUES (@TENSACH, @NAMXB, @SL);
+    DECLARE @MSSACH SMALLINT;
+
+    -- Tìm mã sách tiếp theo trong bảng
+    SELECT @MSSACH = ISNULL(MAX(MSSACH), 0) + 1 FROM SACH;
+
+    INSERT INTO SACH (MSSACH, TENSACH, NAMXB, SL) VALUES (@MSSACH, @TENSACH, @NAMXB, @SL);
 END;
+-- Test Stored Procedures
+EXEC ThemSach N'Tên sách mới', '2024-04-05', 5;
+
 
 --Stored Procedure để cập nhật thông tin sách:
 GO
@@ -354,6 +362,12 @@ BEGIN
     SET TENSACH = @TENSACH, NAMXB = @NAMXB, SL = @SL
     WHERE MSSACH = @MSSACH;
 END;
+--Test Stored Procedures
+EXEC CapNhatThongTinSach 
+    @MSSACH = 11001, 
+    @TENSACH = N'Tên sách mới', 
+    @NAMXB = '2024-01-01', 
+    @SL = 10;
 
 --Stored Procedure để xóa sách:
 GO
@@ -361,84 +375,166 @@ CREATE PROCEDURE XoaSach
     @MSSACH SMALLINT
 AS
 BEGIN
-    DELETE FROM SACH WHERE MSSACH = @MSSACH;
-END;
+    BEGIN TRY
+        -- Xóa các bản ghi từ các bảng tham chiếu đến cuốn sách cần xóa
+        DELETE FROM SACH_TACGIA WHERE MSSACH = @MSSACH;
+        DELETE FROM SACH_NHAXB WHERE MSSACH = @MSSACH;
+        DELETE FROM SACH_LOAISACH WHERE MSSACH = @MSSACH;
+        DELETE FROM SACH_NGONNGU WHERE MSSACH = @MSSACH;
+        DELETE FROM KHO_SACH WHERE MSSACH = @MSSACH;
+        DELETE FROM SINHVIEN_SACH WHERE MSSACH = @MSSACH;
 
+        -- Xóa cuốn sách khỏi bảng SACH
+        DELETE FROM SACH WHERE MSSACH = @MSSACH;
+
+        PRINT N'Xóa cuốn sách thành công.';
+    END TRY
+    BEGIN CATCH
+        PRINT N'Lỗi xóa cuốn sách.';
+    END CATCH;
+END;
+--Test Stored Procedures 
+EXEC XoaSach @MSSACH = 11001;
+EXEC XoaSach @MSSACH = 11015;
 --Stored Procedure để lấy thông tin chi tiết của một cuốn sách:
 GO
-CREATE PROCEDURE ThongTinChiTietSach
-    @MSSACH SMALLINT
+CREATE PROCEDURE ThemSachVaoKho
 AS
 BEGIN
-    SELECT *
-    FROM SACH
-    WHERE MSSACH = @MSSACH;
+    DECLARE @SoLuongSachKho1 INT;
+    DECLARE @SoLuongSachKho2 INT;
+
+    -- Lấy số lượng sách hiện có trong kho 1
+    SELECT @SoLuongSachKho1 = COUNT(*)
+    FROM KHO
+    WHERE MAKHO = 1;
+
+    -- Nếu số lượng sách trong kho 1 ít hơn 200, thêm 30 cuốn sách vào
+    IF @SoLuongSachKho1 < 200
+    BEGIN
+        DECLARE @i1 INT = 1;
+        WHILE @i1 <= 30
+        BEGIN
+            INSERT INTO KHO (MAKHO, TENKHO, SUCCHUA)
+            VALUES (1, N'Kho 1', 0); -- Thêm sách vào kho 1
+            SET @i1 = @i1 + 1;
+        END
+        PRINT N'Đã thêm 30 cuốn sách vào kho 1.';
+    END
+    ELSE
+    BEGIN
+        -- Lấy số lượng sách hiện có trong kho 2
+        SELECT @SoLuongSachKho2 = COUNT(*)
+        FROM KHO
+        WHERE MAKHO = 2;
+
+        -- Nếu số lượng sách trong kho 2 ít hơn 200, thêm 30 cuốn sách vào
+        IF @SoLuongSachKho2 < 200
+        BEGIN
+            DECLARE @i2 INT = 1;
+            WHILE @i2 <= 30
+            BEGIN
+                INSERT INTO KHO (MAKHO, TENKHO, SUCCHUA)
+                VALUES (2, N'Kho 2', 0); -- Thêm sách vào kho 2
+                SET @i2 = @i2 + 1;
+            END
+            PRINT N'Đã thêm 30 cuốn sách vào kho 2.';
+        END
+        ELSE
+        BEGIN
+            PRINT N'Cả hai kho đều đủ sách.';
+        END
+    END
 END;
 
---Stored Procedure để lấy danh sách các sách trong một kho:
-GO
-CREATE PROCEDURE SachTrongKho
-    @MAKHO SMALLINT
-AS
-BEGIN
-    SELECT S.*
-    FROM SACH S
-    JOIN KHO_SACH KS ON S.MSSACH = KS.MSSACH
-    WHERE KS.MAKHO = @MAKHO;
-END;
+--Test Stored Procedures
+EXEC ThemSachVaoKho;
 
 --Stored Procedure để kiểm tra cho sinh viên mượn sách
 GO
 CREATE PROCEDURE MuonSach
-    @MASV SMALLINT,
-    @MAPM SMALLINT,
+    @MSSV SMALLINT,
+    @MSSACH SMALLINT,
     @NGAYMUON SMALLDATETIME,
     @NGAYTRADUKIEN SMALLDATETIME
 AS
 BEGIN
-    IF (SELECT COUNT(*) FROM SINHVIEN_PHIEUMUON WHERE MASV = @MASV AND MAPM = @MAPM) = 0
+    -- Kiểm tra xem sách có tồn tại trong bảng SACH không
+    IF EXISTS (SELECT 1 FROM SACH WHERE MSSACH = @MSSACH)
     BEGIN
-        INSERT INTO SINHVIEN_PHIEUMUON (MASV, MAPM) VALUES (@MASV, @MAPM);
-        PRINT 'Mượn sách thành công cho sinh viên có mã ' + CAST(@MASV AS NVARCHAR(10));
+        -- Kiểm tra xem sinh viên đã mượn sách này chưa
+        IF NOT EXISTS (SELECT 1 FROM SV_PM_SACH WHERE MSSV = @MSSV AND MSSACH = @MSSACH)
+        BEGIN
+            -- Thêm thông tin mượn sách vào bảng SV_PM_SACH
+            INSERT INTO SV_PM_SACH (MSSV, MSSACH, NGAYMUON, NGAYTRADUKIEN, MSPM) 
+            VALUES (@MSSV, @MSSACH, @NGAYMUON, @NGAYTRADUKIEN, @MSSV + @MSSACH);
+            PRINT N'Sinh viên có mã ' + CAST(@MSSV AS NVARCHAR(10)) + N' đã mượn sách thành công.';
+        END
+        ELSE
+        BEGIN
+            PRINT N'Sinh viên có mã ' + CAST(@MSSV AS NVARCHAR(10)) + N' đã mượn sách này.';
+        END
     END
     ELSE
     BEGIN
-        PRINT 'Sinh viên đã mượn sách này.';
+        PRINT N'Sách có mã ' + CAST(@MSSACH AS NVARCHAR(10)) + N' không tồn tại.';
     END
 END;
 
+
+
+--Test Stored Procedures 
+EXEC MuonSach @MSSV = 123, @MSSACH = 456, @NGAYMUON = '2024-04-07', @NGAYTRADUKIEN = '2024-04-14';
+    EXEC MuonSach @MSSV = 16000, @MSSACH = 11014, @NGAYMUON = '2024-10-02', @NGAYTRADUKIEN = '2024-10-03';
+	    EXEC MuonSach @MSSV = 16022, @MSSACH = 11014, @NGAYMUON = '2024-04-09', @NGAYTRADUKIEN = '2024-04-16';
+
+
+
+
+
+
+
+
 --Stored procedure có chức năng kiểm tra số lượng sách tồn kho trước khi mượn. Đối với mỗi cuốn sách cần mượn
 GO
-CREATE PROCEDURE KiemTraTonKhoTruocKhiMuon
-    @MAKHO SMALLINT,
+CREATE PROCEDURE KiemTraSachTrongKho
     @MSSACH SMALLINT,
-    @SL_TON INT OUTPUT,
+    @IS_AVAILABLE BIT OUTPUT,
     @MESSAGE NVARCHAR(200) OUTPUT
 AS
 BEGIN
-    DECLARE @SOLUONG INT;
-
-    SELECT @SOLUONG = S.SL
-    FROM SACH S
-    INNER JOIN KHO_SACH KS ON S.MSSACH = KS.MSSACH
-    WHERE KS.MAKHO = @MAKHO AND S.MSSACH = @MSSACH;
-
-    IF @SOLUONG IS NULL
+    IF EXISTS (SELECT 1 FROM KHO_SACH WHERE MSSACH = @MSSACH)
     BEGIN
-        SET @MESSAGE = 'Sách không tồn tại trong kho!';
-        SET @SL_TON = -1; 
-    END
-    ELSE IF @SOLUONG <= 0
-    BEGIN
-        SET @MESSAGE = 'Sách đã hết trong kho!';
-        SET @SL_TON = 0;
+        SET @IS_AVAILABLE = 1; -- Sách có sẵn trong kho
+        SET @MESSAGE = N'Sách có sẵn trong kho.';
     END
     ELSE
     BEGIN
-        SET @MESSAGE = 'Sách còn tồn kho!';
-        SET @SL_TON = @SOLUONG; 
-    
-    SELECT @SL_TON AS SL_TON, @MESSAGE AS MESSAGE;
+        SET @IS_AVAILABLE = 0; -- Sách không có sẵn trong kho
+        SET @MESSAGE = N'Sách không có sẵn trong kho.';
+    END
+END;
+
+
+
+
+--Test Stored Procedures
+DECLARE @MSSACH SMALLINT = 1001; -- Mã số sách cần kiểm tra
+DECLARE @IS_AVAILABLE BIT;
+DECLARE @MESSAGE NVARCHAR(200);
+
+EXEC KiemTraSachTrongKho 
+    @MSSACH = @MSSACH,
+    @IS_AVAILABLE = @IS_AVAILABLE OUTPUT,
+    @MESSAGE = @MESSAGE OUTPUT;
+
+IF @IS_AVAILABLE = 1
+BEGIN
+    PRINT N'Sách có sẵn trong kho.';
+END
+ELSE
+BEGIN
+    PRINT N'Sách không có sẵn trong kho.';
 END;
 
 --Tạo các Trigger
@@ -453,10 +549,15 @@ BEGIN
 
     IF @SoLuong > 1000
     BEGIN
-        RAISERROR ('Số lượng sách trong kho đã vượt quá giới hạn.', 16, 1);
+        RAISERROR (N'Số lượng sách trong kho đã vượt quá giới hạn.', 16, 1);
         ROLLBACK TRANSACTION;
     END;
 END;
+--Test Trigger 
+INSERT INTO SACH (MSSACH, SL) VALUES (11022, 1001);
+
+
+
 --Trigger để cập nhật số lượng sách khi thêm hoặc xóa sách:
 CREATE TRIGGER CapNhatSoLuongSach
 ON SACH
@@ -465,16 +566,20 @@ AS
 BEGIN
     UPDATE KHO
     SET SUCCHUA = (SELECT SUM(SL) FROM SACH);
+	PRINT(N'Cập Nhật Thành Công');
 END;
+--Test Trigger
+INSERT INTO SACH (MSSACH, SL) VALUES (1, 100);
+DELETE FROM SACH WHERE MSSACH = 1;
 
 --Trigger để kiểm tra ngày mượn sách:
 CREATE OR ALTER TRIGGER KiemTraNgayMuonSach
-ON SINHVIEN_PHIEUMUON
+ON SV_PM_SACH
 AFTER INSERT
 AS
 BEGIN
     DECLARE @NgayMuon SMALLDATETIME;
-    SELECT @NgayMuon = NGAYMUON FROM PHIEUMUON WHERE MAPM = (SELECT MAPM FROM inserted);
+    SELECT @NgayMuon = NGAYMUON FROM inserted;
 
     IF @NgayMuon < '2024-10-01' OR @NgayMuon > '2024-10-07'
     BEGIN
@@ -482,7 +587,16 @@ BEGIN
         ROLLBACK TRANSACTION;
     END;
 END;
- 
+--Test Trigger 
+CREATE TABLE PHIEUMUON (
+    MAPM INT PRIMARY KEY,
+    NGAYMUON SMALLDATETIME
+);
+
+-- Thêm một bản ghi mới vào bảng PHIEUMUON
+INSERT INTO PHIEUMUON (MAPM, NGAYMUON) VALUES (1, '2024-09-30');
+INSERT INTO SV_PM_SACH (MSSV,MSPM,MSSACH, NGAYMUON, NGAYTRADUKIEN) VALUES (1, 1, 1 , '2024-09-30', '2024-10-01');
+--pending
 --Trigger tự động cập nhật thông tin về số lượng cuốn sách mỗi khi một cuốn sách mới được thêm vào hoặc một cuốn sách đã có được cập nhật.
 CREATE TRIGGER CapNhatThongTinSach
 ON SACH_TACGIA
